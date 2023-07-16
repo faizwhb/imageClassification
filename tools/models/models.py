@@ -55,15 +55,15 @@ def make(model_name, num_classes):
         return model
 
 
-def test_model_outputs():
-    model = make('densenet', 2)
-    x = torch.randn(1, 3, 224, 224)
-    y = model(x)
-    print(y.shape)
+# def test_model_outputs():
+#     model = make('densenet', 2)
+#     x = torch.randn(1, 3, 224, 224)
+#     y = model(x)
+#     print(y.shape)
 
-    model = make('mobilenet', 2)
-    x = torch.randn(1, 3, 224, 224)
-    y = model(x)
-    print(y.shape)
+#     model = make('mobilenet', 2)
+#     x = torch.randn(1, 3, 224, 224)
+#     y = model(x)
+#     print(y.shape)
     
-test_model_outputs()
+# test_model_outputs()
