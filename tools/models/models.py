@@ -55,6 +55,7 @@ def make(model_name, num_classes):
         return model
 
 
+# Testing the Models
 # def test_model_outputs():
 #     model = make('densenet', 2)
 #     x = torch.randn(1, 3, 224, 224)
