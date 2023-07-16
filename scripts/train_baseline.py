@@ -11,10 +11,11 @@ import logging
 import argparse
 from torch.utils.data import DataLoader
 from torchvision import transforms
+import torch.nn.functional as F
 
 from torch.utils.tensorboard import SummaryWriter
 import torch
-
+import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Simple Classification Baseline on PyTorch Training')
@@ -25,11 +26,58 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train_single_epoch(model, loss, optimizer, data_fetcher, device, epoch, writer):
+def evaluate(test_loader, model, device, epoch):
+    # switch to evaluation mode
+    model = model.to(device)
+    model.eval()
+    correct = 0
+    total = 0
+    targets = []
+    predictions = []
+    with torch.no_grad():
+        for i, (input, target, index) in enumerate(test_loader):
+            input = input.to(device, non_blocking=True)
+            target = target.to(device, non_blocking=True)
+
+            # accumulate labels to compute evaluation metrics
+            targets += np.squeeze(target.tolist()).tolist()
+            
+            # compute output
+            outputs = model(input)
+            predicted = F.softmax(outputs, dim=-1)
+            predicted = torch.argmax(predicted, dim=-1)
+            
+
+            # accumulate labels to compute evaluation metrics
+            predictions += np.squeeze(predicted.tolist()).tolist()
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+    accuracy = 100*correct/total
+    logging.info(f'Validation Accuracy for Epoch {epoch} is {accuracy}%')
+
+    return accuracy
+
+def validation_single_epoch(model, loss, data_fetcher, device, epoch):
+    loss_per_epoch = 0
+    model = model.to(device)
+    model.eval()
+    with torch.no_grad():
+        for i, (images, labels, _) in enumerate(data_fetcher):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+            outputs = model(images)
+            loss_per_batch = loss(outputs, labels)
+            loss_per_epoch += loss_per_batch.item()
+    epoch_loss = loss_per_epoch/len(data_fetcher)
+    logging.info(f'Validation for Epoch{epoch} is {epoch_loss}')
+
+    return epoch_loss
+
+def train_single_epoch(model, loss, optimizer, data_fetcher, device, epoch):
     loss_per_epoch = 0
     model = model.to(device)
     model.train()
-    for i, (images, labels, indexes) in enumerate(data_fetcher):
+    for i, (images, labels, _) in enumerate(data_fetcher):
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
         outputs = model(images)
@@ -39,11 +87,10 @@ def train_single_epoch(model, loss, optimizer, data_fetcher, device, epoch, writ
         optimizer.zero_grad()
         loss_per_batch.backward()
         optimizer.step()
-        logging.info('Training Loss ' + ' Epoch ' + str(epoch) + ' for minibatch: ' + str(i) + '/' + str(len(data_fetcher)) +
-                     ' is ' + str(loss_per_batch.item())) \
-            if i % 10 == 0 else None
+    epoch_loss = loss_per_epoch/len(data_fetcher)
+    logging.info(f'Training Loss for Epoch{epoch} is {epoch_loss}')
 
-    return loss_per_epoch/len(data_fetcher)
+    return epoch_loss
 
 def main(args):
     model_name = args.model_name
@@ -56,7 +103,9 @@ def main(args):
     if not os.path.isdir(experiment_name):
         os.makedirs(experiment_name)
         
-        
+    
+    writer = SummaryWriter(experiment_name)
+    
     logging.basicConfig(
         format="%(asctime)s %(message)s",
         level=logging.INFO,
@@ -72,9 +121,13 @@ def main(args):
     )
     
     # define Transformations for Training Dataset
+    # We can also add RandAugment an Augmentation Policy for Image Classification Finetuned on ImageNet
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop((224, 224)),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10), 
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+        transforms.GaussianBlur(3, sigma=(0.1, 2.0)),
         transforms.ToTensor(), 
         transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
         ])
@@ -106,7 +159,7 @@ def main(args):
     optimizer = torch.optim.Adam([
         {
         "params": model.pretrained_model.parameters(),
-        "lr": 1e-04
+        "lr": 1e-05
         },
         {"params": model.fc.parameters(),
         "lr": 1e-03
@@ -121,9 +174,36 @@ def main(args):
     logging.info(f'Number of classes in validation:{test_dataset.nb_classes()}')
     logging.info(f'Number of Images in validation:{len(test_dataset)}')
     
-    for current_epoch in range(10):
-        train_loss = train_single_epoch(model, loss, optimizer, train_loader, device, current_epoch, None)
+    best_accuracy = 0
+    best_epoch = 0
     
+    for current_epoch in range(100):
+        train_loss = train_single_epoch(model, loss, optimizer, train_loader, device, current_epoch)
+        
+        validation_loss = validation_single_epoch(model, loss, test_loader, device, current_epoch)
+        
+        val_accuracy = evaluate(test_loader, model, device, current_epoch)
+        
+        writer.add_scalar('Loss/train', train_loss, current_epoch)
+        writer.add_scalar('Loss/val', validation_loss, current_epoch)
+        writer.add_scalar('Accuracy/val', val_accuracy, current_epoch)
+        
+        if best_accuracy < val_accuracy:
+            best_accuracy = val_accuracy
+            best_epoch = current_epoch
+            logging.info('Best Validation Loss: ' + str(validation_loss))
+            logging.info('Best Accuracy: ' + str(best_accuracy))
+            logging.info('Best Epoch: ' + str(best_epoch))
+            logging.info(f'Best Model saved at {experiment_name}')
+            torch.save(model.state_dict(), os.path.join(experiment_name, f'{model_name}_best.pth'))
+    
+    logging.info('---------------------------------------------------------------------------------------------')
+    logging.info('---------------------------------------------------------------------------------------------')
+    logging.info('Training Completed...')
+    logging.info('Best Validation Loss: ' + str(validation_loss))
+    logging.info('Best Accuracy: ' + str(best_accuracy))
+    logging.info('Best Epoch: ' + str(best_epoch))
+ 
 
 if __name__ == '__main__':
     main(parse_args())
