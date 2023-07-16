@@ -17,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 import numpy as np
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Simple Classification Baseline on PyTorch Training')
     parser.add_argument("--model_name", default='mobilenet', type=str, help="Model name")
@@ -121,7 +122,10 @@ def main(args):
     )
     
     # define Transformations for Training Dataset
-    # We can also add RandAugment an Augmentation Policy for Image Classification Finetuned on ImageNet
+    # Currently only add basic augmentation like rotation, color jitter and flips, but for the given dataset I want to explore a richer class of augmentations
+    #  1. RandAugment an Augmentation Policy for Image Classification Finetuned on ImageNet
+    #  2. BASNet or Segment Anything Model to do Segmentation and Swap the Backgrounds 
+    
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop((224, 224)),
         transforms.RandomHorizontalFlip(),
@@ -183,6 +187,9 @@ def main(args):
         validation_loss = validation_single_epoch(model, loss, test_loader, device, current_epoch)
         
         val_accuracy = evaluate(test_loader, model, device, current_epoch)
+        
+        # We can add gradient norm to check the stability of the training process
+        # Other Metrics for Classification like Confusion Matrix, Precision, Recall for better debgging and insights into the training process
         
         writer.add_scalar('Loss/train', train_loss, current_epoch)
         writer.add_scalar('Loss/val', validation_loss, current_epoch)
