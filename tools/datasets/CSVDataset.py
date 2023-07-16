@@ -49,7 +49,8 @@ class Dataset_from_CSV(Dataset):
     def nb_classes(self):
         return len(set(self.ys))
     
-    
+
+## Testing the Dataset    
 # def testDataset(rootFolder, csvName):
     
 #     train_transform = transforms.Compose([
@@ -64,3 +65,4 @@ class Dataset_from_CSV(Dataset):
 #     for i, (images, labels, _) in enumerate(train_loader):
 #         print(images.shape)
 # testDataset('dataset', 'dataset/csvs/train.csv')  
+
