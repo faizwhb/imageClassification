@@ -50,17 +50,17 @@ class Dataset_from_CSV(Dataset):
         return len(set(self.ys))
     
     
-def testDataset(rootFolder, csvName):
+# def testDataset(rootFolder, csvName):
     
-    train_transform = transforms.Compose([
-        transforms.RandomResizedCrop((224, 224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
-    ])
-    dataset = Dataset_from_CSV(rootFolder, csvName, transform=train_transform)
-    train_loader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4, drop_last=True)
+#     train_transform = transforms.Compose([
+#         transforms.RandomResizedCrop((224, 224)),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
+#     ])
+#     dataset = Dataset_from_CSV(rootFolder, csvName, transform=train_transform)
+#     train_loader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4, drop_last=True)
     
-    for i, (images, labels, _) in enumerate(train_loader):
-        print(images.shape)
-testDataset('dataset', 'dataset/csvs/train.csv')  
+#     for i, (images, labels, _) in enumerate(train_loader):
+#         print(images.shape)
+# testDataset('dataset', 'dataset/csvs/train.csv')  
